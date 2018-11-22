@@ -79,7 +79,6 @@ func (z *BadWriter) writeHeader() error {
 	//		n += 8
 	//	}
 
-	fmt.Printf("%v\n", hex.EncodeToString(buf[0:6]))
 	// The header checksum includes the flags, block max size and optional Size.
 	buf[n] = byte(xxh32.ChecksumZero(buf[0:6]) >> 8 & 0xFF)
 	z.checksum.Reset()
