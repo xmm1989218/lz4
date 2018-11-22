@@ -8,7 +8,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/pierrec/lz4"
+	"github.com/xmm1989218/lz4"
 )
 
 type testcase struct {

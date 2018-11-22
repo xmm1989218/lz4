@@ -6,7 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 
-	"github.com/pierrec/lz4/internal/xxh32"
+	"github.com/xmm1989218/lz4/internal/xxh32"
 )
 
 // Reader implements the LZ4 frame decoder.

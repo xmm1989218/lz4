@@ -2,17 +2,18 @@ package lz4
 
 import (
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"io"
 
 	"github.com/xmm1989218/lz4/internal/xxh32"
 )
 
-// Writer implements the LZ4 frame encoder.
-type Writer struct {
+// BadWriter implements the LZ4 frame encoder for kafka v0.8.2.0.
+type BadWriter struct {
 	Header
 
-	buf       [19]byte      // magic number(4) + header(flags(2)+[Size(8)+DictID(4)]+checksum(1)) does not exceed 19 bytes
+	buf       [7]byte       // magic number(4) + header(flags(2)+checksum(1)) does not exceed 7 bytes
 	dst       io.Writer     // Destination.
 	checksum  xxh32.XXHZero // Frame checksum.
 	zdata     []byte        // Compressed data.
@@ -25,12 +26,13 @@ type Writer struct {
 // No access to the underlying io.Writer is performed.
 // The supplied Header is checked at the first Write.
 // It is ok to change it before the first Write but then not until a Reset() is performed.
-func NewWriter(dst io.Writer) *Writer {
-	return &Writer{dst: dst}
+func NewBadWriter(dst io.Writer) *BadWriter {
+	writer := &BadWriter{dst: dst}
+	writer.Header.NoChecksum = true
+	return writer
 }
 
-// writeHeader builds and writes the header (magic+header) to the underlying io.Writer.
-func (z *Writer) writeHeader() error {
+func (z *BadWriter) writeHeader() error {
 	// Default to 4Mb if BlockMaxSize is not set.
 	if z.Header.BlockMaxSize == 0 {
 		z.Header.BlockMaxSize = bsMapID[7]
@@ -60,9 +62,9 @@ func (z *Writer) writeHeader() error {
 	if z.Header.BlockChecksum {
 		flg |= 1 << 4
 	}
-	if z.Header.Size > 0 {
-		flg |= 1 << 3
-	}
+	//	if z.Header.Size > 0 {
+	//		flg |= 1 << 3
+	//	}
 	if !z.Header.NoChecksum {
 		flg |= 1 << 2
 	}
@@ -71,16 +73,18 @@ func (z *Writer) writeHeader() error {
 
 	// Current buffer size: magic(4) + flags(1) + block max size (1).
 	n := 6
-	// Optional items.
-	if z.Header.Size > 0 {
-		binary.LittleEndian.PutUint64(buf[n:], z.Header.Size)
-		n += 8
-	}
+	//	// Optional items.
+	//	if z.Header.Size > 0 {
+	//		binary.LittleEndian.PutUint64(buf[n:], z.Header.Size)
+	//		n += 8
+	//	}
 
+	fmt.Printf("%v\n", hex.EncodeToString(buf[0:6]))
 	// The header checksum includes the flags, block max size and optional Size.
-	buf[n] = byte(xxh32.ChecksumZero(buf[4:n]) >> 8 & 0xFF)
+	buf[n] = byte(xxh32.ChecksumZero(buf[0:6]) >> 8 & 0xFF)
 	z.checksum.Reset()
 
+	// magic(4) + flags(1) + block max size (1) + checksum(1)
 	// Header ready, write it out.
 	if _, err := z.dst.Write(buf[0 : n+1]); err != nil {
 		return err
@@ -95,7 +99,7 @@ func (z *Writer) writeHeader() error {
 
 // Write compresses data from the supplied buffer into the underlying io.Writer.
 // Write does not return until the data has been written.
-func (z *Writer) Write(buf []byte) (int, error) {
+func (z *BadWriter) Write(buf []byte) (int, error) {
 	if !z.Header.done {
 		if err := z.writeHeader(); err != nil {
 			return 0, err
@@ -145,7 +149,7 @@ func (z *Writer) Write(buf []byte) (int, error) {
 }
 
 // compressBlock compresses a block.
-func (z *Writer) compressBlock(data []byte) error {
+func (z *BadWriter) compressBlock(data []byte) error {
 	if !z.NoChecksum {
 		z.checksum.Write(data)
 	}
@@ -205,7 +209,7 @@ func (z *Writer) compressBlock(data []byte) error {
 // Flush flushes any pending compressed data to the underlying writer.
 // Flush does not return until the data has been written.
 // If the underlying writer returns an error, Flush returns that error.
-func (z *Writer) Flush() error {
+func (z *BadWriter) Flush() error {
 	if debugFlag {
 		debug("flush with index %d", z.idx)
 	}
@@ -217,7 +221,7 @@ func (z *Writer) Flush() error {
 }
 
 // Close closes the Writer, flushing any unwritten data to the underlying io.Writer, but does not close the underlying io.Writer.
-func (z *Writer) Close() error {
+func (z *BadWriter) Close() error {
 	if !z.Header.done {
 		if err := z.writeHeader(); err != nil {
 			return err
@@ -249,7 +253,7 @@ func (z *Writer) Close() error {
 // Reset clears the state of the Writer z such that it is equivalent to its
 // initial state from NewWriter, but instead writing to w.
 // No access to the underlying io.Writer is performed.
-func (z *Writer) Reset(w io.Writer) {
+func (z *BadWriter) Reset(w io.Writer) {
 	z.Header = Header{}
 	z.dst = w
 	z.checksum.Reset()
@@ -259,7 +263,7 @@ func (z *Writer) Reset(w io.Writer) {
 }
 
 // writeUint32 writes a uint32 to the underlying writer.
-func (z *Writer) writeUint32(x uint32) error {
+func (z *BadWriter) writeUint32(x uint32) error {
 	buf := z.buf[:4]
 	binary.LittleEndian.PutUint32(buf, x)
 	_, err := z.dst.Write(buf)

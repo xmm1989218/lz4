@@ -6,7 +6,7 @@ import (
 	"hash/fnv"
 	"testing"
 
-	"github.com/pierrec/lz4/internal/xxh32"
+	"github.com/xmm1989218/lz4/internal/xxh32"
 )
 
 type test struct {

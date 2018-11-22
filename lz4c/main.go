@@ -11,8 +11,8 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/pierrec/lz4"
 	"github.com/pkg/profile"
+	"github.com/xmm1989218/lz4"
 )
 
 func main() {
