@@ -2,7 +2,6 @@ package lz4
 
 import (
 	"encoding/binary"
-	"encoding/hex"
 	"fmt"
 	"io"
 
